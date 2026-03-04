@@ -1,4 +1,3 @@
-# priva-browser
 
 # PrivaBrowse
 
