@@ -1,4 +1,3 @@
-
 # PrivaBrowse
 
 <p align="center">
