@@ -47,10 +47,8 @@ No account. No premium tier. No data collection. **Completely free.**
 
 | Platform | File | Link |
 |----------|------|------|
-| Windows 64-bit | Installer | [Releases](https://github.com/YOUR_USERNAME/privabrowse/releases/latest) → `PrivaBrowse Setup 1.0.0.exe` |
-| Windows 64-bit | Portable | [Releases](https://github.com/YOUR_USERNAME/privabrowse/releases/latest) → `PrivaBrowse 1.0.0.exe` |
-
-Replace `YOUR_USERNAME` with the repo owner. Or [build from source](#build).
+| Windows 64-bit | Installer | [Releases](https://github.com/omfghello/priva-browser/releases/tag/installer) → `PrivaBrowse Setup 1.0.0.exe` |
+| Windows 64-bit | Portable |  [Releases](https://github.com/omfghello/priva-browser/releases/tag/installer) → `PrivaBrowse 1.0.0.exe` |
 
 **Installer:** Standard setup wizard, desktop shortcut, Start Menu entry.  
 **Portable:** Single `.exe`, no install; run from a folder or USB drive.
@@ -74,8 +72,6 @@ Replace `YOUR_USERNAME` with the repo owner. Or [build from source](#build).
 
 | Feature | Description |
 |---------|-------------|
-| **AnimeVault** | Search anime, download episodes (SUB/DUB), choose quality. Download-only (no streaming). |
-| **MangaVault** | Read manga from MangaDex. Search, browse Popular/Latest/Recent, full-page chapter viewer. |
 | **Password Vault** | Encrypted password storage with a master password. Data stays on your device. |
 | **Sessions** | Save and restore named sets of tabs. |
 | **Focus Mode** | Block distracting sites for a set time (e.g. 25 min). |
@@ -99,8 +95,3 @@ Replace `YOUR_USERNAME` with the repo owner. Or [build from source](#build).
 ## Quick Start
 
 **Requirements:** Windows 10/11 (64-bit), Node.js 18+, npm
-
-git clone https://github.com/YOUR_USERNAME/privabrowse.git
-cd privabrowse
-npm install
-npm start
