@@ -1,0 +1,253 @@
+# Transparency Report
+
+> **PrivaBrowse believes you deserve to know exactly what your browser does.**
+> This document discloses every protection mechanism, every blocked domain, and every line of defense — no secrets, no fine print.
+
+---
+
+## Table of Contents
+
+- [Mission](#mission)
+- [What We Block](#what-we-block)
+- [What We Spoof](#what-we-spoof)
+- [What We Strip](#what-we-strip)
+- [Data Poisoning Engine](#data-poisoning-engine)
+- [Search Engine Policy](#search-engine-policy)
+- [What We Do NOT Do](#what-we-do-not-do)
+- [How to Verify](#how-to-verify)
+- [Architecture Overview](#architecture-overview)
+- [Changelog](#changelog)
+
+---
+
+## Mission
+
+PrivaBrowse exists for one reason: **your browsing data belongs to you and only you.**
+
+We reject the surveillance-capitalist model where browsers silently funnel your habits, preferences, and identity to advertising networks. Every feature in PrivaBrowse is designed to make mass tracking technically impossible — not just discouraged, but actively poisoned.
+
+---
+
+## What We Block
+
+### Domain-Level Blocking
+
+| Category | Count | Method |
+|---|---|---|
+| Fast-Block Hosts | **634 domains** | O(1) `Set` lookup on every request — zero performance overhead |
+| Extended Blocklist (ads) | **408 domains** | Loaded from `src/blocklist.js` |
+| Extended Blocklist (trackers) | **446 domains** | Loaded from `src/blocklist.js` |
+| Extended Blocklist (aggressive) | **258 domains** | Loaded from `src/blocklist.js` |
+| Social Tracker Hosts | **112 domains** | Facebook, Twitter, LinkedIn, Pinterest, Instagram, ShareThis, AddToAny, etc. |
+| Crypto Miner Hosts | **84 domains** | Coinhive, CryptoLoot, JSEcoin, Mineralt, WebminePool, etc. |
+| **Combined Total** | **1,942 domains** | All lists are deduplicated and auditable |
+
+### Pattern-Based Blocking
+
+- **75+ regex patterns** matching ad-serving URL structures (`/ads/`, `/adserv/`, `/pagead/`, etc.)
+- **Tracking pixel detection** — 1x1 images, clear GIFs, spacer GIFs, beacon endpoints
+- **Script filename blocking** — `ads.js`, `tracking.js`, `analytics.min.js`, `gtag.js`, `fbevents.js`, `pixel.js`, `tracker.min.js`
+- **Third-party iframe blocking** — prevents cross-origin frames from loading tracker content
+
+### What Gets Blocked (Examples)
+
+Google Ads, DoubleClick, Facebook Pixel, Twitter Ads, LinkedIn Insight Tag, TikTok Analytics, Amazon Ad System, Taboola, Outbrain, Criteo, Bing BAT, Yahoo Analytics, Hotjar, Clarity, Mixpanel, Segment, Amplitude, New Relic, Datadog, Sentry, FullStory, Mouseflow, HubSpot, Marketo, Pardot, Salesforce, Optimizely, VWO, AppFlyer, Adjust, Branch, Chartbeat, Parsely, Piano, Permutive, and hundreds more.
+
+---
+
+## What We Spoof
+
+### Fingerprint Protection (50+ Vectors)
+
+Every vector is randomized per-session to prevent cross-site linkage:
+
+| Category | Vectors |
+|---|---|
+| **Canvas** | `toDataURL()`, `toBlob()`, `getImageData()` — subtle noise injection |
+| **WebGL** | Renderer/vendor strings randomized, `getParameter()` spoofed, shader precision varied |
+| **AudioContext** | `getFloatFrequencyData()` noise, `createAnalyser()` fuzz |
+| **Navigator** | `hardwareConcurrency`, `deviceMemory`, `platform`, `vendor`, `plugins`, `mimeTypes` |
+| **Screen/Window** | `screen.width/height`, `availWidth/Height`, `colorDepth`, `pixelDepth`, `outerWidth/Height` |
+| **ClientRects** | `getBoundingClientRect()`, `getClientRects()` — sub-pixel noise |
+| **Timing** | `performance.now()` precision reduced, `Date` precision reduced |
+| **Fonts** | Font enumeration blocked, `measureText()` fuzzed |
+| **MediaDevices** | `enumerateDevices()` returns empty or randomized list |
+| **Storage** | `localStorage`/`sessionStorage` quotas fuzzed |
+| **Permissions API** | Always returns `"prompt"` regardless of actual state |
+| **Language/DNT/GPC** | Randomized `Accept-Language`, `navigator.language`, `Do-Not-Track: 1`, `Sec-GPC: 1` |
+| **Timezone** | Randomized `Intl.DateTimeFormat` resolved options |
+| **Math** | Subtle variations in `Math.tan()`, `Math.log()`, etc. |
+| **WebRTC** | IP leak prevention, `RTCPeerConnection` restricted |
+| **WebGPU** | Adapter info spoofed |
+| **CSS matchMedia** | Randomized `prefers-color-scheme`, `prefers-reduced-motion` |
+
+### Blocked APIs
+
+These APIs are completely disabled to prevent fingerprinting:
+
+Battery Status, Gamepad, Speech Synthesis, Keyboard Layout Map, USB, Bluetooth, Serial, HID, XR (WebVR/WebXR), Sensor APIs (Accelerometer, Gyroscope, Magnetometer, AmbientLight), MIDI, Idle Detection, Device Motion/Orientation, Presentation, CSS Paint Worklet, Web Share, Payment Request, Speech Recognition, Contact Picker, Wake Lock, Installed Apps, DRM (EME) fingerprinting, and more.
+
+---
+
+## What We Strip
+
+### From Outgoing Requests
+- **ETag supercookies** — `If-None-Match` header deleted on every request
+- **Client Hints** — All 10+ `Sec-CH-*` headers stripped/spoofed (`Sec-CH-UA`, `Sec-CH-UA-Mobile`, `Sec-CH-UA-Platform`, `Sec-CH-UA-Full-Version-List`, etc.)
+- **URL tracking parameters** — `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, `fbclid`, `gclid`, `msclkid`, `mc_eid`, `oly_enc_id`, `oly_anon_id`, `__hssc`, `__hstc`, `__hsfp`, `_hsenc`, `vero_id`, `wickedid`, and more
+
+### From Incoming Responses
+- **ETag headers** — stripped to prevent supercookie tracking
+- **`Accept-CH`** and **`Critical-CH`** headers — deleted to prevent servers from requesting Client Hints
+- **Tracking cookies** — cookies matching known tracker patterns are stripped
+
+---
+
+## Data Poisoning Engine
+
+When fingerprint protection is enabled, PrivaBrowse doesn't just block trackers — it **actively poisons** every piece of data they try to collect.
+
+### JavaScript-Level Interception
+
+Every major data exfiltration API is intercepted and fed randomized garbage:
+
+| Interception Point | What Gets Poisoned |
+|---|---|
+| `fetch()` | URL parameters + request body rewritten with fake data |
+| `XMLHttpRequest` | URL parameters + request body rewritten |
+| `navigator.sendBeacon()` | Payload replaced with poisoned version |
+| `HTMLImageElement.src` | Tracking pixel URLs get fake parameters |
+| `HTMLFormElement.submit()` | Hidden form fields filled with random data |
+| `navigator.geolocation` | Returns randomized coordinates worldwide |
+
+### 40+ Poisoned Data Fields
+
+Every tracker request gets injected with fake: email addresses, full names, phone numbers, IP addresses, user agents, device IDs, session IDs, fingerprint hashes, Google Analytics client IDs, screen resolutions, languages, timezones, referrers, geographic coordinates, and more.
+
+### HTTP Header Poisoning (Main Process)
+
+For every request matching a tracker domain or URL pattern, PrivaBrowse injects **40+ randomized HTTP headers**:
+
+- **IP Spoofing**: `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`, `True-Client-IP`, `X-Client-IP`, `X-Cluster-Client-IP`, `Forwarded`, `X-Original-Forwarded-For`
+- **Trace ID Chaos**: `X-Amzn-Trace-Id`, `X-Cloud-Trace-Context`, `X-B3-TraceId`, `X-B3-SpanId`, `Traceparent`
+- **Identity Scramble**: Randomized `User-Agent`, `Accept-Language`, `Referer`, `Origin`
+- **Device Hints**: Fake `Viewport-Width`, `DPR`, `Device-Memory`, `RTT`, `Downlink`
+- **Privacy Signals**: `DNT: 1`, `Sec-GPC: 1`
+- **Cache Busting**: `Cache-Control: no-cache`, `Pragma: no-cache`
+- **Token Stripping**: `Cookie`, `Authorization`, `X-CSRF-Token`, `X-XSRF-TOKEN`, `X-Requested-With` — all deleted
+
+### No Exclusions
+
+**No company is excluded from data poisoning. Not Google. Not Facebook. Not Microsoft. Not Amazon. No one.**
+
+The only exception is YouTube's ad blocker — we don't break video playback. But YouTube's tracker endpoints still get fully poisoned data, just like every other company.
+
+---
+
+## Search Engine Policy
+
+PrivaBrowse only ships privacy-respecting search engines:
+
+| Engine | Privacy Level | Notes |
+|---|---|---|
+| **PrivaBrowse Search** | Highest | Our own index, zero third-party tracking |
+| **DuckDuckGo** (default) | High | No tracking, no profile building |
+| **Brave Search** | High | Independent index, no Big Tech dependency |
+| **Startpage** | High | Anonymous proxy to search results |
+| **Qwant** | High | EU-based privacy-first engine |
+| **SearXNG** | High | Open-source metasearch aggregator |
+| **Mojeek** | High | Own crawler, no tracking |
+| **MetaGer** | High | German non-profit metasearch |
+| **Swisscows** | High | Swiss privacy, family-safe |
+| **Yep** | High | Independent index by Ahrefs |
+| **Ecosia** | Medium | Plants trees, minimal data collection |
+
+**Removed engines**: Google, Bing, and Yahoo were removed because their search pages load tracking scripts that conflict with our blocking and because we don't believe a privacy browser should normalize surveillance-based search.
+
+---
+
+## What We Do NOT Do
+
+To be absolutely clear:
+
+- **No telemetry** — We never phone home. Zero analytics endpoints exist in the codebase.
+- **No crash reporting** — Errors stay on your machine. No Sentry, no Bugsnag, no New Relic.
+- **No usage statistics** — We don't know how many users we have, let alone what they browse.
+- **No update tracking** — Update checks use standard Electron mechanisms, no identifying data sent.
+- **No A/B testing** — Every user gets the same features.
+- **No data sales** — We have no data to sell.
+- **No "anonymous" metrics** — There is no such thing as truly anonymous analytics. We collect nothing.
+- **No partnerships with ad companies** — We block them all.
+- **No acceptable ads program** — All ads are treated equally: blocked.
+
+---
+
+## How to Verify
+
+Don't take our word for it. Verify everything yourself:
+
+### Test Your Protection
+1. Visit [Cover Your Tracks](https://coveryourtracks.eff.org/) by the EFF
+2. Visit [BrowserLeaks](https://browserleaks.com/) for detailed fingerprint analysis
+3. Visit [AmIUnique](https://amiunique.org/) to check your fingerprint uniqueness
+4. Visit [CanvasBlocker Test](https://canvasblocker.kkapsner.de/test/) for canvas protection
+
+### Audit the Code
+- **Blocking logic**: `main.js` — search for `FAST_BLOCK_HOSTS`, `AD_URL_PATTERNS`, `onBeforeRequest`
+- **Domain lists**: `src/blocklist.js` — contains `ads`, `trackers`, and `aggressive` arrays
+- **Fingerprint spoofing**: `src/renderer/renderer.js` — search for `FINGERPRINT_SPOOF_SCRIPT`
+- **Data poisoning**: `src/renderer/renderer.js` — search for `DATA_POISONER_SCRIPT`
+- **Header manipulation**: `main.js` — search for `onBeforeSendHeaders`, `onHeadersReceived`
+
+Every protection is implemented in plain JavaScript, fully readable, no obfuscation.
+
+---
+
+## Architecture Overview
+
+```
+User's Request
+    │
+    ├─► main.js: onBeforeRequest
+    │       ├─ FAST_BLOCK_HOSTS (Set, O(1) lookup)
+    │       ├─ blocklist.js domains
+    │       ├─ AD_URL_PATTERNS (regex)
+    │       ├─ Social tracker hosts
+    │       ├─ Crypto miner hosts
+    │       ├─ Tracking pixels
+    │       └─ Third-party iframes
+    │
+    ├─► main.js: onBeforeSendHeaders
+    │       ├─ ETag supercookie removal
+    │       ├─ Client Hints stripping
+    │       ├─ URL parameter cleaning
+    │       └─ Nuclear header poisoning (40+ headers)
+    │
+    ├─► main.js: onHeadersReceived
+    │       ├─ ETag removal
+    │       ├─ Accept-CH / Critical-CH removal
+    │       └─ Tracking cookie stripping
+    │
+    └─► renderer.js: Injected Scripts
+            ├─ FINGERPRINT_SPOOF_SCRIPT (50+ vectors)
+            ├─ DATA_POISONER_SCRIPT (fetch, XHR, beacon, etc.)
+            ├─ Cookie consent auto-dismissal
+            ├─ Newsletter popup killer
+            └─ Cosmetic ad filtering
+```
+
+---
+
+## Changelog
+
+### March 2026
+- Expanded blocklist to 1,942 domains
+- Added Nuclear Data Poisoning Engine (40+ fields, 40+ headers)
+- Removed Google, Bing, Yahoo search engines
+- Added SearXNG, Mojeek, MetaGer, Swisscows, Yep
+- Expanded fingerprint protection to 50+ vectors
+- Removed all company exclusions from data poisoning
+
+---
+
+*This document is updated whenever PrivaBrowse's protection mechanisms change. Last updated: March 5, 2026.*
