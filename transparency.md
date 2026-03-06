@@ -7,8 +7,8 @@
   <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-blue?style=flat-square" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-green?style=flat-square" />
   <img alt="Electron" src="https://img.shields.io/badge/electron-40.6.1-9feaf9?style=flat-square" />
-  <img alt="Domains Blocked" src="https://img.shields.io/badge/domains%20blocked-1%2C942-red?style=flat-square" />
-  <img alt="Fingerprint Vectors" src="https://img.shields.io/badge/fingerprint%20vectors-50%2B-orange?style=flat-square" />
+  <img alt="Domains Blocked" src="https://img.shields.io/badge/domains%20blocked-2%2C100%2B-red?style=flat-square" />
+  <img alt="Fingerprint Vectors" src="https://img.shields.io/badge/fingerprint%20vectors-60%2B-orange?style=flat-square" />
 </p>
 
 ---
@@ -61,15 +61,19 @@ PrivaBrowse is engineered to defend against the following threats:
 | Threat | Defense |
 |---|---|
 | **Cross-site tracking** | Domain blocking, cookie isolation, referrer stripping, URL parameter cleaning |
-| **Browser fingerprinting** | 50+ spoofed vectors randomized per session |
+| **Browser fingerprinting** | 60+ spoofed vectors randomized per session |
 | **Supercookie tracking** | ETag stripping, HSTS cache limiting, Client Hints removal |
-| **Data exfiltration** | Nuclear data poisoning of every tracker endpoint |
+| **Data exfiltration** | Nuclear data poisoning — 55+ fields + 200+ headers on every tracker endpoint |
 | **IP address leaks** | WebRTC policy enforcement, IP header spoofing on tracker requests |
-| **Cryptojacking** | 84 miner domains blocked at the network level |
-| **Social media surveillance** | 112 social tracker domains blocked unconditionally |
+| **Cryptojacking** | 84+ miner domains blocked at the network level |
+| **Social media surveillance** | 112+ social tracker domains blocked unconditionally |
 | **Search profiling** | Surveillance-based search engines removed entirely |
 | **Cookie consent fatigue** | Automatic banner dismissal — you shouldn't have to click "reject" 50 times a day |
 | **Newsletter/paywall harassment** | Popup overlays automatically removed |
+| **Redirect tracking** | Redirect tracker bypass — t.co, l.facebook.com, google.com/url resolved directly |
+| **Storage-based tracking** | 60+ tracker localStorage keys and IndexedDB databases purged every 60 seconds |
+| **WebSocket/EventSource tracking** | WS payloads poisoned, SSE connections blocked for tracker hosts |
+| **Anchor ping tracking** | HTML ping attributes stripped, document.referrer sanitized to origin-only |
 
 ### What We Do NOT Defend Against
 
@@ -88,20 +92,22 @@ Transparency means honesty about limits:
 
 | Category | Count | Method |
 |---|---|---|
-| Fast-Block Hosts | **634 domains** | O(1) `Set` lookup on every request — zero performance overhead |
+| Fast-Block Hosts | **740+ domains** | O(1) `Set` lookup on every request — zero performance overhead |
 | Extended Blocklist (ads) | **408 domains** | Loaded from `src/blocklist.js` |
 | Extended Blocklist (trackers) | **446 domains** | Loaded from `src/blocklist.js` |
-| Extended Blocklist (aggressive) | **258 domains** | Loaded from `src/blocklist.js` |
+| Extended Blocklist (aggressive) | **358+ domains** | Loaded from `src/blocklist.js` |
 | Social Tracker Hosts | **112 domains** | Facebook, Twitter, LinkedIn, Pinterest, Instagram, ShareThis, AddToAny, etc. |
 | Crypto Miner Hosts | **84 domains** | Coinhive, CryptoLoot, JSEcoin, Mineralt, WebminePool, etc. |
-| **Combined Total** | **1,942 domains** | All lists are deduplicated and auditable |
+| **Combined Total** | **2,100+ domains** | All lists are deduplicated and auditable |
 
 ### Pattern-Based Blocking
 
-- **75+ regex patterns** matching ad-serving URL structures (`/ads/`, `/adserv/`, `/pagead/`, etc.)
+- **100+ regex patterns** matching ad-serving URL structures (`/ads/`, `/adserv/`, `/pagead/`, etc.)
 - **Tracking pixel detection** — 1x1 images, clear GIFs, spacer GIFs, beacon endpoints
 - **Script filename blocking** — `ads.js`, `tracking.js`, `analytics.min.js`, `gtag.js`, `fbevents.js`, `pixel.js`, `tracker.min.js`
 - **Third-party iframe blocking** — prevents cross-origin frames from loading tracker content (with a whitelist for ReCAPTCHA, YouTube embeds, Stripe payments, and other functional iframes)
+- **Web Vitals / Reporting API endpoint blocking** — `web-vitals.js`, `/.well-known/attribution-reporting`
+- **Fingerprint script blocking** — `fp.js`, `fingerprint*.js`
 
 ### What Gets Blocked (Examples)
 
@@ -136,7 +142,7 @@ PrivaBrowse maintains a per-domain count of every blocked request. You can inspe
 
 ## What We Spoof
 
-### Fingerprint Protection (50+ Vectors)
+### Fingerprint Protection (60+ Vectors)
 
 Every vector is randomized per-session to prevent cross-site linkage:
 
@@ -159,6 +165,13 @@ Every vector is randomized per-session to prevent cross-site linkage:
 | **WebRTC** | IP leak prevention, `RTCPeerConnection` restricted via `disable_non_proxied_udp` policy |
 | **WebGPU** | Adapter info spoofed |
 | **CSS matchMedia** | Randomized `prefers-color-scheme`, `prefers-reduced-motion` |
+| **Navigator Extended** | `pdfViewerEnabled`, `cookieEnabled`, `javaEnabled()`, `mimeTypes`, `plugins` |
+| **Performance** | `performance.memory` heap size limits spoofed |
+| **CSS** | `CSS.supports()` return values randomized |
+| **DOM** | `document.elementsFromPoint()`, `document.visibilityState` spoofed |
+| **Network** | `navigator.connection` (effectiveType, downlink, rtt) randomized |
+| **Encoding** | `TextEncoder`/`TextDecoder` behavior normalized |
+| **Observers** | `IntersectionObserver` timing fuzzed |
 
 ### Blocked APIs
 
@@ -167,7 +180,7 @@ These APIs are completely disabled to prevent fingerprinting:
 <details>
 <summary><strong>Full list of disabled APIs</strong></summary>
 
-Battery Status, Gamepad, Speech Synthesis, Keyboard Layout Map, USB, Bluetooth, Serial, HID, XR (WebVR/WebXR), Sensor APIs (Accelerometer, Gyroscope, Magnetometer, AmbientLight), MIDI, Idle Detection, Device Motion/Orientation, Presentation, CSS Paint Worklet, Web Share, Payment Request, Speech Recognition, Contact Picker, Wake Lock, Installed Apps, DRM (EME) fingerprinting
+Battery Status, Gamepad, Speech Synthesis, Keyboard Layout Map, USB, Bluetooth, Serial, HID, XR (WebVR/WebXR), Sensor APIs (Accelerometer, Gyroscope, Magnetometer, AmbientLight), MIDI, Idle Detection, Device Motion/Orientation, Presentation, CSS Paint Worklet, Web Share, Payment Request, Speech Recognition, Contact Picker, Wake Lock, Installed Apps, DRM (EME) fingerprinting, Navigator.pdfViewerEnabled, Navigator.cookieEnabled, Notification.maxActions, Performance.memory, Screen.orientation
 
 </details>
 
@@ -183,7 +196,7 @@ PrivaBrowse rotates your `User-Agent` string either per-session or per-site (con
 
 - **ETag supercookies** — `If-None-Match` header deleted on every request
 - **Client Hints** — All 10+ `Sec-CH-*` headers stripped/spoofed (`Sec-CH-UA`, `Sec-CH-UA-Mobile`, `Sec-CH-UA-Platform`, `Sec-CH-UA-Full-Version-List`, etc.)
-- **URL tracking parameters** — `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, `fbclid`, `gclid`, `msclkid`, `mc_eid`, `oly_enc_id`, `oly_anon_id`, `__hssc`, `__hstc`, `__hsfp`, `_hsenc`, `vero_id`, `wickedid`, and more
+- **URL tracking parameters** — **110+ tracking parameters** including `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, `fbclid`, `gclid`, `msclkid`, `mc_eid`, `oly_enc_id`, `oly_anon_id`, `__hssc`, `__hstc`, `__hsfp`, `_hsenc`, `vero_id`, `wickedid`, TikTok (`_ttp`, `tt_*`), Twitter (`twclid`), Reddit (`rdt_cid`), LinkedIn (`li_fat_id`), Amazon (`tag`, `ascsubtag`), Pinterest (`epik`), and more
 - **Referrer header** — Reduced to origin-only or stripped entirely (configurable)
 
 ### From Incoming Responses
@@ -219,27 +232,53 @@ Every major data exfiltration API is intercepted and fed randomized garbage:
 | `HTMLFormElement.submit()` | Hidden form fields filled with random data |
 | `navigator.geolocation` | Returns randomized coordinates worldwide |
 
-### 40+ Poisoned Data Fields
+### 55+ Poisoned Data Fields
 
-Every tracker request gets injected with fake: email addresses, full names, phone numbers, IP addresses, user agents, device IDs, session IDs, fingerprint hashes, Google Analytics client IDs, screen resolutions, languages, timezones, referrers, geographic coordinates, and more.
+Every tracker request gets injected with fake: email addresses, full names, phone numbers, IP addresses, user agents, device IDs, session IDs, fingerprint hashes, Google Analytics client IDs, screen resolutions, languages, timezones, referrers, geographic coordinates, browser/OS version, GPU vendor/renderer, heap size, connection type, page URL/title, font list hash, canvas/WebGL hashes, and more.
 
 ### HTTP Header Poisoning (Main Process)
 
-For every request matching a tracker domain or URL pattern, PrivaBrowse injects **40+ randomized HTTP headers**:
+For every request matching a tracker domain or URL pattern, PrivaBrowse injects **200+ randomized HTTP headers across 13 categories**:
 
-- **IP Spoofing**: `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`, `True-Client-IP`, `X-Client-IP`, `X-Cluster-Client-IP`, `Forwarded`, `X-Original-Forwarded-For`
-- **Trace ID Chaos**: `X-Amzn-Trace-Id`, `X-Cloud-Trace-Context`, `X-B3-TraceId`, `X-B3-SpanId`, `Traceparent`
-- **Identity Scramble**: Randomized `User-Agent`, `Accept-Language`, `Referer`, `Origin`
-- **Device Hints**: Fake `Viewport-Width`, `DPR`, `Device-Memory`, `RTT`, `Downlink`
-- **Privacy Signals**: `DNT: 1`, `Sec-GPC: 1`
-- **Cache Busting**: `Cache-Control: no-cache`, `Pragma: no-cache`
-- **Token Stripping**: `Cookie`, `Authorization`, `X-CSRF-Token`, `X-XSRF-TOKEN`, `X-Requested-With` — all deleted
+- **IP Spoofing (30 headers)**: X-Forwarded-For (3 IPs), X-Real-IP, CF-Connecting-IP, True-Client-IP, X-Client-IP, plus 25 more including Vercel, Azure, Fastly, Akamai, Cloudflare geo headers
+- **Sec-Fetch Stripping**: All Sec-Fetch-* headers deleted
+- **Proxy/Forwarding (20 headers)**: X-Forwarded-Host/Proto/Port/Server, X-Original-URL, X-CDN-Provider, X-Varnish, X-Backend-Server, and more
+- **Tracing/Correlation (30 headers)**: X-Request-ID, X-Trace-ID, X-Amzn-Trace-Id, X-B3-TraceId, Traceparent, Datadog, Uber, Instana, NewRelic, Sentry trace headers
+- **Browser/Device/Identity (25 headers)**: User-Agent, Accept-Language, Referer, Origin, DNT, Sec-GPC, Viewport-Width, DPR, Device-Memory, RTT, Downlink, ECT, device fingerprint/ID/session/visitor IDs
+- **Geo/Locale/Timezone (15 headers)**: Country, region, city, lat/long, timezone, locale, ASN, ISP, continent, postal code, connection type
+- **Analytics/Tracking Poison (20 headers)**: Fake GA Client ID, FB Pixel ID, tracking IDs, campaign IDs, Segment/Mixpanel/Amplitude/Heap/Pendo/Intercom/HubSpot/Marketo/Braze/OneSignal tokens
+- **Cloud/Infrastructure (15 headers)**: AWS CloudFront, Azure, GCP, Firebase, Netlify, Fly, Render, Railway request IDs
+- **Security/Auth (10 headers)**: Fake API keys, app/SDK/client versions, build numbers, nonces, idempotency keys
+- **Performance/Timing (10 headers)**: Response time, runtime, served time, rate limit headers
+- **Misc/Custom (15 headers)**: X-Powered-By, X-Generated-By, feature flags, deployment/commit/environment/cluster/shard/tenant/org/workspace/project IDs
+- **Cache-Busting (5 headers)**: Cache-Control, Pragma, Expires, If-None-Match, If-Modified-Since
+- **Token Stripping**: Cookie, Authorization, X-CSRF-Token, X-XSRF-TOKEN, Proxy-Authorization, X-Auth-Token all deleted
 
 ### No Exclusions
 
 **No company is excluded from data poisoning. Not Google. Not Facebook. Not Microsoft. Not Amazon. No one.**
 
 The only exception is YouTube's video playback — we don't break video streaming. But YouTube's tracker endpoints still get fully poisoned data, just like every other company.
+
+### WebSocket Interception
+
+WebSocket connections to tracker hosts have their `send()` method intercepted. JSON payloads are parsed and every tracking field is replaced with fake data. The connection itself is preserved (to avoid detection) but the data is garbage.
+
+### EventSource Blocking
+
+Server-Sent Events (EventSource) connections to tracker hosts are replaced with a fake stub that does nothing. The page thinks it connected; the tracker receives nothing.
+
+### Redirect Tracker Bypass
+
+Links through bounce trackers (t.co, l.facebook.com, google.com/url, click.redditmail.com, safelinks.protection.outlook.com, lnks.gd, youtube.com/redirect, href.li, steamcommunity.com/linkfilter) are intercepted and resolved directly to the real destination URL.
+
+### Periodic Storage Cleanup
+
+Every 60 seconds, PrivaBrowse purges 60+ known tracker localStorage keys (_ga, _fbp, amplitude_id, intercom, drift, hubspot, etc.) and deletes tracking IndexedDB databases (Firebase, Sentry, Amplitude).
+
+### Anchor Ping Stripping & Referrer Sanitization
+
+HTML `<a ping=...>` attributes are stripped from all links via MutationObserver. `document.referrer` is overridden to return origin-only. `window.name` is cleared on every navigation to prevent cross-site data leaking. The Reporting API (ReportingObserver) is neutralized.
 
 ---
 
@@ -363,8 +402,8 @@ To be absolutely clear:
 | Feature | PrivaBrowse | Brave | Firefox (strict) | Chrome |
 |---|:---:|:---:|:---:|:---:|
 | Built-in ad blocking | Yes | Yes | Partial | No |
-| Tracker domain blocking (1,900+) | Yes | Yes | Partial | No |
-| Fingerprint spoofing (50+ vectors) | Yes | Partial | Partial | No |
+| Tracker domain blocking (2,100+) | Yes | Yes | Partial | No |
+| Fingerprint spoofing (60+ vectors) | Yes | Partial | Partial | No |
 | Data poisoning engine | **Yes** | No | No | No |
 | HTTP header poisoning | **Yes** | No | No | No |
 | ETag supercookie stripping | Yes | No | No | No |
@@ -375,6 +414,10 @@ To be absolutely clear:
 | Zero telemetry | Yes | No | No | No |
 | Built-in password vault | Yes | No | Partial | Partial |
 | Open source | Yes | Yes | Yes | No |
+| WebSocket/EventSource interception | **Yes** | No | No | No |
+| Redirect tracker bypass | **Yes** | No | No | No |
+| Storage cleanup (60+ keys) | **Yes** | No | No | No |
+| 110+ URL param stripping | **Yes** | Partial | No | No |
 
 ---
 
@@ -423,7 +466,7 @@ User's Request
     ├─► main.js: onBeforeRequest
     │       ├─ FAST_BLOCK_HOSTS (Set, O(1) lookup)
     │       ├─ blocklist.js domains (ads / trackers / aggressive)
-    │       ├─ AD_URL_PATTERNS (75+ regex patterns)
+    │       ├─ AD_URL_PATTERNS (100+ regex patterns)
     │       ├─ Social tracker hosts (112 domains)
     │       ├─ Crypto miner hosts (84 domains)
     │       ├─ Tracking pixel detection
@@ -437,7 +480,8 @@ User's Request
     │       ├─ URL parameter cleaning (utm_*, fbclid, gclid, etc.)
     │       ├─ Referrer policy enforcement
     │       ├─ User-Agent randomization
-    │       └─ Nuclear header poisoning (40+ headers on tracker requests)
+    │       ├─ Nuclear header poisoning (200+ headers across 13 categories)
+    │       └─ Redirect tracker bypass (9 bounce domains)
     │
     ├─► main.js: onHeadersReceived
     │       ├─ ETag removal
@@ -445,8 +489,10 @@ User's Request
     │       └─ Tracking cookie stripping
     │
     └─► renderer.js: Injected Scripts
-            ├─ FINGERPRINT_SPOOF_SCRIPT (50+ vectors)
+            ├─ FINGERPRINT_SPOOF_SCRIPT (60+ vectors)
             ├─ DATA_POISONER_SCRIPT (fetch, XHR, beacon, form, pixel, geo)
+            ├─ STORAGE_CLEANUP_SCRIPT (60+ tracker keys purged every 60s)
+            ├─ MISC_PRIVACY_SCRIPT (anchor pings, referrer, sendBeacon, ReportingObserver)
             ├─ Cookie consent auto-dismissal
             ├─ Newsletter popup killer
             ├─ Idle dialog dismissal
@@ -512,7 +558,7 @@ No measurable impact. The poisoning logic intercepts requests that are already b
 <details>
 <summary><strong>How is this different from uBlock Origin + Firefox?</strong></summary>
 
-uBlock Origin is excellent at blocking. PrivaBrowse blocks <em>and</em> poisons. When a tracker slips past the blocklist (and some will), it collects garbage data instead of your real information. The data poisoning engine, HTTP header poisoning, and 50+ fingerprint spoofing vectors are features no extension can replicate at the same depth because extensions don't have access to the network stack the way Electron's main process does.
+uBlock Origin is excellent at blocking. PrivaBrowse blocks <em>and</em> poisons. When a tracker slips past the blocklist (and some will), it collects garbage data instead of your real information. The data poisoning engine, 200+ HTTP headers of poisoning, and 60+ fingerprint spoofing vectors are features no extension can replicate at the same depth because extensions don't have access to the network stack the way Electron's main process does.
 </details>
 
 ---
@@ -521,11 +567,11 @@ uBlock Origin is excellent at blocking. PrivaBrowse blocks <em>and</em> poisons.
 
 ### v1.1.0 — March 2026
 
-- Expanded blocklist to 1,942 domains
-- Added Nuclear Data Poisoning Engine (40+ fields, 40+ headers)
+- Expanded blocklist to 2,100+ domains
+- Added Nuclear Data Poisoning Engine (55+ fields, 200+ headers across 13 categories)
 - Removed Google, Bing, Yahoo search engines
 - Added SearXNG, Mojeek, MetaGer, Swisscows, Yep
-- Expanded fingerprint protection to 50+ vectors
+- Expanded fingerprint protection to 60+ vectors
 - Removed all company exclusions from data poisoning
 - Added cookie consent auto-dismissal
 - Added newsletter popup killer
@@ -537,6 +583,17 @@ uBlock Origin is excellent at blocking. PrivaBrowse blocks <em>and</em> poisons.
 - Added Focus Mode
 - Added HTTPS enforcement
 - Added encrypted password vault
+- Added WebSocket payload poisoning for tracker hosts
+- Added EventSource (SSE) blocking for tracker hosts
+- Added redirect tracker bypass (t.co, l.facebook.com, google.com/url, etc.)
+- Added periodic storage cleanup (60+ tracker localStorage keys every 60s)
+- Added anchor ping stripping and document.referrer sanitization
+- Added 200+ poisoned HTTP headers across 13 categories
+- Expanded URL parameter stripping to 110+ params
+- Added process sandboxing and 17 Chromium security flags
+- Added strict Content Security Policy
+- Added IPC input validation and rate limiting
+- Added navigation guards and webview hardening
 
 ---
 
@@ -552,5 +609,5 @@ Found a tracker we missed? A site that breaks? A privacy concern in our code?
 
 <p align="center">
   <em>This document is updated whenever PrivaBrowse's protection mechanisms change.</em><br>
-  <strong>Last updated: March 5, 2026 &middot; Version 1.1.0</strong>
+  <strong>Last updated: March 6, 2026 &middot; Version 1.1.0</strong>
 </p>
