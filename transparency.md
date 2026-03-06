@@ -26,12 +26,21 @@
 - [What We Spoof](#what-we-spoof)
 - [What We Strip](#what-we-strip)
 - [Data Poisoning Engine](#data-poisoning-engine)
+  - [Link Click Parameter Stripping](#link-click-parameter-stripping)
+  - [Local CDN Privacy](#local-cdn-privacy-decentraleyes-style)
+  - [Privacy Sandbox API Blocking](#privacy-sandbox-api-blocking)
+  - [Network State Partitioning](#network-state-partitioning)
+  - [HSTS Supercookie Protection](#hsts-supercookie-protection)
+  - [Favicon Supercookie Protection](#favicon-supercookie-protection)
+  - [Bounce Tracking Detection](#bounce-tracking-detection--purging)
+  - [Stale Cookie Cleanup](#stale-cookie-cleanup)
 - [HTTPS Enforcement](#https-enforcement)
 - [Cookie Consent & Annoyance Removal](#cookie-consent--annoyance-removal)
 - [Cosmetic Ad Filtering](#cosmetic-ad-filtering)
 - [YouTube Ad Blocking](#youtube-ad-blocking)
 - [Search Engine Policy](#search-engine-policy)
 - [Password Vault](#password-vault)
+- [PrivaForge Developer Tools](#privaforge-developer-tools)
 - [Focus Mode](#focus-mode)
 - [Data Saver Mode](#data-saver-mode)
 - [What We Do NOT Do](#what-we-do-not-do)
@@ -60,11 +69,16 @@ PrivaBrowse is engineered to defend against the following threats:
 
 | Threat | Defense |
 |---|---|
-| **Cross-site tracking** | Domain blocking, cookie isolation, referrer stripping, URL parameter cleaning |
+| **Cross-site tracking** | Domain blocking, cookie isolation, referrer stripping, URL parameter cleaning, network state partitioning |
 | **Browser fingerprinting** | 60+ spoofed vectors randomized per session |
-| **Supercookie tracking** | ETag stripping, HSTS cache limiting, Client Hints removal |
-| **Data exfiltration** | Nuclear data poisoning — 55+ fields + 200+ headers on every tracker endpoint |
+| **Supercookie tracking** | ETag stripping, HSTS cache clearing (startup + every 30 min), favicon cache clearing, Client Hints removal |
+| **Data exfiltration** | Nuclear data poisoning — 55+ API fields + smart header poisoning on tracker endpoints |
 | **IP address leaks** | WebRTC policy enforcement, IP header spoofing on tracker requests |
+| **Privacy Sandbox surveillance** | FLEDGE, Topics, Attribution Reporting, Shared Storage, Fenced Frames all disabled via flags + Permissions-Policy |
+| **Network cross-site leakage** | HTTP cache, connections, SSL sessions, DNS all partitioned per top-level site |
+| **Bounce tracking** | Rapid redirect chains (< 1.5s) detected; bounce tracker cookies/storage auto-purged |
+| **Stale cookie persistence** | Cookies for domains not visited in 7+ days automatically deleted |
+| **CDN-based tracking** | Decentraleyes-style CDN privacy — cookies/referrer stripped from CDN requests, tracking scripts blocked |
 | **Cryptojacking** | 84+ miner domains blocked at the network level |
 | **Social media surveillance** | 112+ social tracker domains blocked unconditionally |
 | **Search profiling** | Surveillance-based search engines removed entirely |
@@ -74,6 +88,7 @@ PrivaBrowse is engineered to defend against the following threats:
 | **Storage-based tracking** | 60+ tracker localStorage keys and IndexedDB databases purged every 60 seconds |
 | **WebSocket/EventSource tracking** | WS payloads poisoned, SSE connections blocked for tracker hosts |
 | **Anchor ping tracking** | HTML ping attributes stripped, document.referrer sanitized to origin-only |
+| **Link click tracking** | 110+ tracking parameters stripped from `<a>` hrefs in real-time before clicks |
 
 ### What We Do NOT Defend Against
 
@@ -236,23 +251,23 @@ Every major data exfiltration API is intercepted and fed randomized garbage:
 
 Every tracker request gets injected with fake: email addresses, full names, phone numbers, IP addresses, user agents, device IDs, session IDs, fingerprint hashes, Google Analytics client IDs, screen resolutions, languages, timezones, referrers, geographic coordinates, browser/OS version, GPU vendor/renderer, heap size, connection type, page URL/title, font list hash, canvas/WebGL hashes, and more.
 
-### HTTP Header Poisoning (Main Process)
+### Smart HTTP Header Poisoning (Main Process)
 
-For every request matching a tracker domain or URL pattern, PrivaBrowse injects **200+ randomized HTTP headers across 13 categories**:
+PrivaBrowse uses a **smart header poisoning** strategy: instead of injecting hundreds of new headers (which degraded performance and broke websites), it only **randomizes headers the tracker request already carries**. This approach is stealthier, faster, and avoids detection.
 
-- **IP Spoofing (30 headers)**: X-Forwarded-For (3 IPs), X-Real-IP, CF-Connecting-IP, True-Client-IP, X-Client-IP, plus 25 more including Vercel, Azure, Fastly, Akamai, Cloudflare geo headers
-- **Sec-Fetch Stripping**: All Sec-Fetch-* headers deleted
-- **Proxy/Forwarding (20 headers)**: X-Forwarded-Host/Proto/Port/Server, X-Original-URL, X-CDN-Provider, X-Varnish, X-Backend-Server, and more
-- **Tracing/Correlation (30 headers)**: X-Request-ID, X-Trace-ID, X-Amzn-Trace-Id, X-B3-TraceId, Traceparent, Datadog, Uber, Instana, NewRelic, Sentry trace headers
-- **Browser/Device/Identity (25 headers)**: User-Agent, Accept-Language, Referer, Origin, DNT, Sec-GPC, Viewport-Width, DPR, Device-Memory, RTT, Downlink, ECT, device fingerprint/ID/session/visitor IDs
-- **Geo/Locale/Timezone (15 headers)**: Country, region, city, lat/long, timezone, locale, ASN, ISP, continent, postal code, connection type
-- **Analytics/Tracking Poison (20 headers)**: Fake GA Client ID, FB Pixel ID, tracking IDs, campaign IDs, Segment/Mixpanel/Amplitude/Heap/Pendo/Intercom/HubSpot/Marketo/Braze/OneSignal tokens
-- **Cloud/Infrastructure (15 headers)**: AWS CloudFront, Azure, GCP, Firebase, Netlify, Fly, Render, Railway request IDs
-- **Security/Auth (10 headers)**: Fake API keys, app/SDK/client versions, build numbers, nonces, idempotency keys
-- **Performance/Timing (10 headers)**: Response time, runtime, served time, rate limit headers
-- **Misc/Custom (15 headers)**: X-Powered-By, X-Generated-By, feature flags, deployment/commit/environment/cluster/shard/tenant/org/workspace/project IDs
-- **Cache-Busting (5 headers)**: Cache-Control, Pragma, Expires, If-None-Match, If-Modified-Since
-- **Token Stripping**: Cookie, Authorization, X-CSRF-Token, X-XSRF-TOKEN, Proxy-Authorization, X-Auth-Token all deleted
+For every request matching a tracker domain or URL pattern:
+
+- **User-Agent randomization**: Rotated from a pool of 5 common browser/OS combinations
+- **Accept-Language spoofing**: Randomized from 6 common locale combinations
+- **Referer/Origin spoofing**: Replaced with common referrers (Google, DuckDuckGo, Reddit) or stripped
+- **IP header spoofing**: X-Forwarded-For, X-Real-IP, CF-Connecting-IP, True-Client-IP, and 6 more — only randomized if the request already carries them
+- **Correlation/trace ID poisoning**: X-Request-ID, X-Correlation-ID, X-Trace-ID, X-Amzn-Trace-Id, X-B3-TraceId, Traceparent, Sentry-Trace, Datadog — fake values replace existing ones
+- **Device/session ID poisoning**: X-Device-ID, X-Session-ID, X-Visitor-ID, X-Device-Fingerprint, X-GA-Client-ID, X-Analytics-ID, X-Tracking-ID, Newrelic, Baggage — poisoned if present
+- **Sec-Fetch stripping**: All Sec-Fetch-Dest/Mode/Site/User headers deleted (leaks cross-site behavior)
+- **Token stripping**: Cookie, Authorization, X-CSRF-Token, X-XSRF-TOKEN, X-Requested-With, Proxy-Authorization all deleted from tracker requests
+- **Cache-busting**: Cache-Control set to `no-cache, no-store`; If-None-Match randomized to prevent ETag fingerprinting
+
+**Why smart instead of bulk?** The previous approach of injecting 200+ headers on every tracker request caused measurable performance degradation and broke websites like YouTube. The new approach poisons only what exists, making PrivaBrowse undetectable to tracker servers that monitor for unusual header counts.
 
 ### No Exclusions
 
@@ -279,6 +294,88 @@ Every 60 seconds, PrivaBrowse purges 60+ known tracker localStorage keys (_ga, _
 ### Anchor Ping Stripping & Referrer Sanitization
 
 HTML `<a ping=...>` attributes are stripped from all links via MutationObserver. `document.referrer` is overridden to return origin-only. `window.name` is cleared on every navigation to prevent cross-site data leaking. The Reporting API (ReportingObserver) is neutralized.
+
+### Link Click Parameter Stripping
+
+Beyond stripping tracking parameters on navigation, PrivaBrowse also cleans links **in real-time within the page**:
+
+- Hooks `click` and `auxclick` events on every `<a>` tag
+- Uses a `MutationObserver` to clean dynamically added links as they appear
+- Strips 110+ tracking parameters (`utm_*`, `fbclid`, `gclid`, `msclkid`, TikTok, Twitter, Reddit, LinkedIn, Amazon, Pinterest, and more) from `href` attributes before the browser navigates
+- Works on both left-click and middle-click (new tab) navigation
+
+### Local CDN Privacy (Decentraleyes-Style)
+
+Requests to CDN hosts (cdnjs.cloudflare.com, cdn.jsdelivr.net, unpkg.com, etc.) receive special handling:
+
+- **Cookie stripping**: Cookies are never sent to CDN hosts
+- **Referrer stripping**: Referer header is removed to prevent CDNs from knowing which site loaded their resources
+- **Tracking script blocking**: Known tracking scripts disguised as CDN resources are detected and blocked via pattern matching
+
+This is defined in `src/cdn-replacements.js` and applied in `main.js`.
+
+### Privacy Sandbox API Blocking
+
+Google's Privacy Sandbox APIs (marketed as "privacy-preserving" but still enabling interest-based advertising) are comprehensively disabled:
+
+| API | How Blocked |
+|---|---|
+| **FLEDGE / Protected Audience** | `disable-features` Chromium flag + Permissions-Policy |
+| **Topics API / Browsing Topics** | `disable-features` Chromium flag + Permissions-Policy |
+| **Attribution Reporting** | `disable-features` Chromium flag + Permissions-Policy |
+| **Fenced Frames** | `disable-features` Chromium flag + Permissions-Policy |
+| **Shared Storage** | `disable-features` Chromium flag + Permissions-Policy |
+| **Private Aggregation** | Permissions-Policy header |
+| **Interest Group Storage** | `disable-features` Chromium flag |
+| **Conversion Measurement** | `disable-features` Chromium flag |
+
+These are blocked via both `app.commandLine.appendSwitch('disable-features', ...)` in the main process and by injecting a `Permissions-Policy` response header on every page load.
+
+### Network State Partitioning
+
+To prevent cross-site tracking via shared network state, PrivaBrowse enables Chromium's isolation features:
+
+| State | Chromium Flag |
+|---|---|
+| HTTP cache | `SplitCacheByNetworkIsolationKey` |
+| TCP/QUIC connections | `PartitionConnectionsByNetworkIsolationKey` |
+| SSL sessions | `PartitionSSLSessionsByNetworkIsolationKey` |
+| DNS cache | `PartitionDomainReliabilityByNetworkIsolationKey` |
+| Network Error Logging | `PartitionNelAndReporting` |
+| Third-party storage | `ThirdPartyStoragePartitioning` |
+| Expect-CT state | `PartitionExpectCTStateByNetworkIsolationKey` |
+
+This means Site A cannot detect whether you've visited Site B by probing shared caches, connection pools, or DNS state.
+
+### HSTS Supercookie Protection
+
+HSTS (HTTP Strict Transport Security) can be abused to store a unique identifier across browser sessions by selectively setting HSTS on a matrix of subdomains. PrivaBrowse defends against this by:
+
+- Clearing the HSTS resolver cache on startup
+- Clearing it again every 30 minutes while running
+- Using `session.defaultSession.clearHostResolverCache()`
+
+### Favicon Supercookie Protection
+
+Similar to HSTS supercookies, favicon caching can be exploited to track users across sessions. PrivaBrowse clears the favicon cache periodically alongside HSTS cache clearing using `session.defaultSession.clearCache()`.
+
+### Bounce Tracking Detection & Purging
+
+"Bounce tracking" is a technique where trackers redirect you through their domain for just long enough to set a cookie, then bounce you to your actual destination. PrivaBrowse detects this:
+
+- Tracks navigation timestamps per webContents
+- If a domain redirects within 1.5 seconds without user interaction, it's flagged as a bounce tracker
+- All cookies and storage for flagged domains are immediately purged
+- The system is integrated into the `onBeforeRequest` handler for main frame navigations
+
+### Stale Cookie Cleanup
+
+Even without bounce tracking, cookies can accumulate from domains you visited once and never returned to. PrivaBrowse tracks domain visit timestamps and periodically:
+
+- Scans all cookies in the session
+- Compares each cookie's domain against the last-visited timestamp
+- Deletes cookies from domains not visited within a configurable threshold (default: 7 days)
+- Runs on startup and can be triggered manually
 
 ---
 
@@ -356,6 +453,37 @@ PrivaBrowse includes a built-in encrypted password vault so you don't need to tr
 
 ---
 
+## PrivaForge Developer Tools
+
+PrivaBrowse ships with **PrivaForge** — a completely custom developer tools panel built from scratch. This is not Chrome DevTools. It's a cyberpunk-themed toolkit designed to be fun and practical.
+
+### Why Custom Dev Tools?
+
+Chrome DevTools are powerful but generic. PrivaForge is purpose-built for PrivaBrowse users who want to inspect, debug, and audit websites with a tool that matches the browser's identity. It also includes a **Privacy Scan** tool that no standard dev tools provide.
+
+### 6 Tool Panels
+
+| Panel | What It Does |
+|---|---|
+| **Terminal** | Hacker-style JavaScript console with a `▶` prompt. Execute any JS in the page context. Built-in commands include `dom.count`, `dom.links`, `perf.timing`, `perf.memory`, `privacy.scan`, `storage.local`, `fun.rainbow`, `fun.flip`, `fun.party`. Full arrow-key command history and tab-autocomplete |
+| **X-Ray** | DOM inspector that scans the page tree structure. Collapsible node tree with color-coded tags, IDs, and classes. **Pick Element** mode with neon green highlight overlay — click any element to see box model, computed styles, and attributes |
+| **Pulse** | Real-time network monitor via PerformanceObserver. Shows resource name, type, size, timing, and a visual waterfall bar. Filter by type (JS, CSS, Img, Fetch, Other). Record/pause toggle |
+| **Vault** | Storage explorer for localStorage, sessionStorage, and cookies. Search/filter keys, click to inspect values, delete individual entries or clear all |
+| **Paint** | Live CSS editor with line numbers and instant injection. Quick Inject snippets: Box Outlines, Grayscale Images, Comic Sans, Dark Mode, Rainbow Mode, Hover Zoom. Pull computed styles from hovered elements |
+| **Scan** | Full site audit scoring **Performance**, **Accessibility**, **Privacy**, and **SEO** (0–100 each). Checks load time, DOM node count, lazy loading, alt text, HTTPS, trackers, meta tags, structured data, and more |
+
+### Privacy Implications
+
+PrivaForge runs entirely locally. It does not send any data anywhere. The Terminal executes JavaScript within the page's webview context using `executeJavaScript()`. No external services, no telemetry, no analytics.
+
+### Access
+
+- **F12** or **Ctrl+Shift+I** — Toggle PrivaForge
+- **Right-click context menu** — "PrivaForge" option
+- **Command palette** (`Ctrl+Shift+P`) — "PrivaForge" command
+
+---
+
 ## Focus Mode
 
 PrivaBrowse includes a **Focus Mode** that lets you temporarily block distracting websites for a set period of time:
@@ -405,10 +533,17 @@ To be absolutely clear:
 | Tracker domain blocking (2,100+) | Yes | Yes | Partial | No |
 | Fingerprint spoofing (60+ vectors) | Yes | Partial | Partial | No |
 | Data poisoning engine | **Yes** | No | No | No |
-| HTTP header poisoning | **Yes** | No | No | No |
+| Smart header poisoning | **Yes** | No | No | No |
 | ETag supercookie stripping | Yes | No | No | No |
 | Client Hints removal | Yes | Partial | No | No |
-| URL parameter cleaning | Yes | Yes | No | No |
+| URL parameter cleaning (navigation + link clicks) | **Yes** | Partial | No | No |
+| Privacy Sandbox API blocking | **Yes** | Partial | No | No |
+| Network state partitioning | **Yes** | No | Partial | Partial |
+| HSTS supercookie protection | **Yes** | No | Partial | No |
+| Favicon supercookie protection | **Yes** | No | No | No |
+| Bounce tracking detection | **Yes** | Partial | Partial | No |
+| Stale cookie auto-cleanup | **Yes** | No | No | No |
+| Local CDN privacy | **Yes** | No | No | No |
 | Cookie consent auto-dismiss | Yes | No | No | No |
 | Surveillance search engines removed | **Yes** | No | No | No |
 | Zero telemetry | Yes | No | No | No |
@@ -417,7 +552,6 @@ To be absolutely clear:
 | WebSocket/EventSource interception | **Yes** | No | No | No |
 | Redirect tracker bypass | **Yes** | No | No | No |
 | Storage cleanup (60+ keys) | **Yes** | No | No | No |
-| 110+ URL param stripping | **Yes** | Partial | No | No |
 
 ---
 
@@ -442,14 +576,23 @@ Every protection is implemented in plain JavaScript, fully readable, no obfuscat
 |---|---|---|
 | Request blocking | `main.js` | `FAST_BLOCK_HOSTS`, `AD_URL_PATTERNS`, `onBeforeRequest` |
 | Domain lists | `src/blocklist.js` | `ads`, `trackers`, `aggressive` arrays |
+| CDN tracking lists | `src/cdn-replacements.js` | `CDN_TRACKING_HOSTS`, `isCdnTrackingScript` |
 | Fingerprint spoofing | `src/renderer/renderer.js` | `FINGERPRINT_SPOOF_SCRIPT` |
 | Data poisoning | `src/renderer/renderer.js` | `DATA_POISONER_SCRIPT` |
-| Header manipulation | `main.js` | `onBeforeSendHeaders`, `onHeadersReceived` |
+| Smart header poisoning | `main.js` | `onBeforeSendHeaders`, `TRACKER_RE`, `isTracker` |
+| Link click param stripping | `src/renderer/renderer.js` | `LINK_CLICK_PARAM_STRIP_SCRIPT` |
+| Privacy Sandbox blocking | `main.js` | `disable-features`, `Permissions-Policy` in `onHeadersReceived` |
+| Network partitioning | `main.js` | `enable-features` Chromium flags |
+| HSTS/favicon supercookie protection | `main.js` | `startSupercookieProtection`, `clearSupercookies` |
+| Bounce tracking detection | `main.js` | `recordNavigation`, `checkBounceTracker` |
+| Stale cookie cleanup | `main.js` | `trackDomainVisit`, `runStaleCookieCleanup` |
 | Cookie banner removal | `src/renderer/renderer.js` | `COOKIE_BANNER_SCRIPT` |
 | Newsletter popup killer | `src/renderer/renderer.js` | `NEWSLETTER_KILLER_SCRIPT` |
 | Cosmetic ad filtering | `src/renderer/renderer.js` | `injectUniversalAdNuker` |
 | YouTube ad blocking | `src/renderer/renderer.js` | `injectYouTubeAdBlocker` |
 | Password vault | `src/vault.js` | Entire file |
+| PrivaForge dev tools | `src/renderer/renderer.js` | `privaforge`, `togglePrivaForge`, `pfTerminal`, `pfXRay`, `pfPulse` |
+| Clipboard shortcuts fix | `main.js` | `Menu.buildFromTemplate`, Edit role items |
 | HTTPS upgrade | `main.js` | `forceHTTPS` |
 
 ### Reproducible Builds
@@ -480,13 +623,22 @@ User's Request
     │       ├─ URL parameter cleaning (utm_*, fbclid, gclid, etc.)
     │       ├─ Referrer policy enforcement
     │       ├─ User-Agent randomization
-    │       ├─ Nuclear header poisoning (200+ headers across 13 categories)
+    │       ├─ Smart header poisoning (randomizes existing headers only)
+    │       ├─ CDN cookie/referrer stripping
+    │       ├─ Bounce tracking detection
     │       └─ Redirect tracker bypass (9 bounce domains)
     │
     ├─► main.js: onHeadersReceived
     │       ├─ ETag removal
     │       ├─ Accept-CH / Critical-CH removal
+    │       ├─ Privacy Sandbox Permissions-Policy injection
     │       └─ Tracking cookie stripping
+    │
+    ├─► main.js: Background Tasks
+    │       ├─ HSTS supercookie cache clearing (startup + every 30 min)
+    │       ├─ Favicon cache clearing (periodic)
+    │       ├─ Stale cookie cleanup (domains not visited in 7+ days)
+    │       └─ Network state partitioning (via Chromium enable-features flags)
     │
     └─► renderer.js: Injected Scripts
             ├─ FINGERPRINT_SPOOF_SCRIPT (60+ vectors)
@@ -498,7 +650,9 @@ User's Request
             ├─ Idle dialog dismissal
             ├─ Cosmetic ad filtering (Universal Ad Nuker)
             ├─ YouTube ad blocker
-            └─ Link URL cleaner (strips tracking params from hrefs)
+            ├─ Link URL cleaner (strips tracking params from hrefs)
+            ├─ Link click param stripping (MutationObserver + click/auxclick hooks)
+            └─ PrivaForge dev tools (Terminal, X-Ray, Pulse, Vault, Paint, Scan)
 ```
 
 ---
@@ -552,13 +706,13 @@ Their search result pages load dozens of tracking scripts that conflict with our
 <details>
 <summary><strong>Does data poisoning slow down my browsing?</strong></summary>
 
-No measurable impact. The poisoning logic intercepts requests that are already being made to tracker endpoints and rewrites their payloads. It doesn't add new network requests — it corrupts existing ones.
+No measurable impact. The poisoning logic intercepts requests that are already being made to tracker endpoints and rewrites their payloads. It doesn't add new network requests — it corrupts existing ones. Earlier versions injected 200+ headers on every tracker request, which caused performance degradation; this was refactored to a "smart" approach that only randomizes headers the request already carries.
 </details>
 
 <details>
 <summary><strong>How is this different from uBlock Origin + Firefox?</strong></summary>
 
-uBlock Origin is excellent at blocking. PrivaBrowse blocks <em>and</em> poisons. When a tracker slips past the blocklist (and some will), it collects garbage data instead of your real information. The data poisoning engine, 200+ HTTP headers of poisoning, and 60+ fingerprint spoofing vectors are features no extension can replicate at the same depth because extensions don't have access to the network stack the way Electron's main process does.
+uBlock Origin is excellent at blocking. PrivaBrowse blocks <em>and</em> poisons. When a tracker slips past the blocklist (and some will), it collects garbage data instead of your real information. The data poisoning engine, smart header poisoning, 60+ fingerprint spoofing vectors, network state partitioning, Privacy Sandbox blocking, bounce tracking detection, and supercookie protection are features no extension can replicate at the same depth because extensions don't have access to the network stack the way Electron's main process does.
 </details>
 
 ---
@@ -567,12 +721,33 @@ uBlock Origin is excellent at blocking. PrivaBrowse blocks <em>and</em> poisons.
 
 ### v1.1.0 — March 2026
 
+**Privacy & Anti-Tracking:**
 - Expanded blocklist to 2,100+ domains
-- Added Nuclear Data Poisoning Engine (55+ fields, 200+ headers across 13 categories)
+- Added Nuclear Data Poisoning Engine (55+ fields on tracker API requests)
+- Refactored header poisoning from 200+ bulk-injected headers to smart approach (randomizes existing headers only) — fixes performance issues and website breakage
+- Added Privacy Sandbox API blocking (FLEDGE, Topics, Attribution Reporting, Shared Storage, Fenced Frames) via Chromium flags + Permissions-Policy
+- Added network state partitioning (HTTP cache, connections, SSL sessions, DNS isolated per site)
+- Added HSTS supercookie protection (cache cleared on startup + every 30 minutes)
+- Added favicon supercookie protection (periodic cache clearing)
+- Added bounce tracking detection (< 1.5s redirects detected, cookies/storage purged)
+- Added stale cookie cleanup (domains not visited in 7+ days have cookies deleted)
+- Added local CDN privacy (Decentraleyes-style cookie/referrer stripping + tracking script blocking)
+- Added link click parameter stripping (MutationObserver + click hooks clean 110+ params from `<a>` hrefs in real-time)
+- Expanded URL parameter stripping to 110+ params (navigation + in-page links)
+- Removed all company exclusions from data poisoning
+- Expanded fingerprint protection to 60+ vectors
+- Added WebSocket payload poisoning for tracker hosts
+- Added EventSource (SSE) blocking for tracker hosts
+- Added redirect tracker bypass (t.co, l.facebook.com, google.com/url, etc.)
+- Added periodic storage cleanup (60+ tracker localStorage keys every 60s)
+- Added anchor ping stripping and document.referrer sanitization
+
+**Search & Browsing:**
 - Removed Google, Bing, Yahoo search engines
 - Added SearXNG, Mojeek, MetaGer, Swisscows, Yep
-- Expanded fingerprint protection to 60+ vectors
-- Removed all company exclusions from data poisoning
+
+**UI & Features:**
+- Added PrivaForge — custom cyberpunk developer tools with 6 panels (Terminal, X-Ray, Pulse, Vault, Paint, Scan)
 - Added cookie consent auto-dismissal
 - Added newsletter popup killer
 - Added cosmetic ad filtering (Universal Ad Nuker)
@@ -583,17 +758,23 @@ uBlock Origin is excellent at blocking. PrivaBrowse blocks <em>and</em> poisons.
 - Added Focus Mode
 - Added HTTPS enforcement
 - Added encrypted password vault
-- Added WebSocket payload poisoning for tracker hosts
-- Added EventSource (SSE) blocking for tracker hosts
-- Added redirect tracker bypass (t.co, l.facebook.com, google.com/url, etc.)
-- Added periodic storage cleanup (60+ tracker localStorage keys every 60s)
-- Added anchor ping stripping and document.referrer sanitization
-- Added 200+ poisoned HTTP headers across 13 categories
-- Expanded URL parameter stripping to 110+ params
-- Added process sandboxing and 17 Chromium security flags
+
+**Security:**
+- Added process sandboxing and 30+ Chromium security flags
 - Added strict Content Security Policy
 - Added IPC input validation and rate limiting
 - Added navigation guards and webview hardening
+
+**Bug Fixes:**
+- Fixed Ctrl+C/V/X/A not working (replaced null application menu with proper hidden Edit menu)
+- Fixed yellow annotation bar appearing on text selection (disabled auto-injection of PAGE_ANNOTATE_SCRIPT)
+- Fixed YouTube breakage caused by overly broad tracker detection regex
+- Added safe-host bypass for data poisoner to prevent first-party site interference
+
+**Performance:**
+- Optimized blocklist lookups: O(1) Set for hostnames, single compiled RegExp for URL patterns
+- Consolidated URL parsing in network handlers to reduce redundant `new URL()` calls
+- Tightened tracker detection regex to use word boundaries and exact domain matching
 
 ---
 
