@@ -78,13 +78,22 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 <td><b>Fingerprint Protection</b></td><td>60+ vectors — Canvas, WebGL, Audio, Navigator, Screen, Timing, Fonts, Math, MIDI, Sensors, and more</td>
 </tr>
 <tr>
-<td><b>Data Poisoning</b></td><td>200+ fake HTTP headers + 55+ poisoned data fields on every tracker request</td>
+<td><b>Data Poisoning</b></td><td>Smart header poisoning (randomizes existing headers only) + 55+ poisoned API data fields on tracker requests</td>
 </tr>
 <tr>
-<td><b>Security Hardening</b></td><td>Process sandboxing, CSP, IPC validation, navigation guards, permission handlers</td>
+<td><b>Security Hardening</b></td><td>Process sandboxing, CSP, IPC validation, navigation guards, permission handlers, Privacy Sandbox API blocking</td>
+</tr>
+<tr>
+<td><b>Anti-Tracking</b></td><td>Network state partitioning, HSTS/favicon supercookie protection, bounce tracking detection, stale cookie cleanup</td>
+</tr>
+<tr>
+<td><b>Local CDN</b></td><td>Decentraleyes-style CDN privacy — strips cookies/referrer from CDN requests, blocks tracking scripts</td>
 </tr>
 <tr>
 <td><b>DNS</b></td><td>DNS-over-HTTPS (Cloudflare, Quad9, NextDNS, or custom)</td>
+</tr>
+<tr>
+<td><b>Developer Tools</b></td><td>PrivaForge — custom cyberpunk dev tools with 6 panels (Terminal, X-Ray, Pulse, Vault, Paint, Scan)</td>
 </tr>
 <tr>
 <td><b>Storage</b></td><td>electron-store (local only, never synced)</td>
@@ -120,10 +129,13 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 | **YouTube ad interception** | Blocks pre-roll ad requests, ad-serving scripts, and tracking pixels |
 | **Script injection** | Injects ad-nuking scripts into pages for elements that bypass network-level blocking |
 | **Resource type filtering** | Blocks ad-related scripts, images, iframes, and XHR requests by type |
-| **Data poisoning** | Injects 55+ fake data fields into tracker requests to corrupt surveillance profiles |
-| **HTTP header poisoning** | Adds 200+ fake HTTP headers across 13 categories on every tracker request |
+| **Data poisoning** | Injects 55+ fake data fields into tracker API requests to corrupt surveillance profiles |
+| **Smart header poisoning** | Randomizes only headers the request already carries — no spamming, no breakage |
+| **Local CDN privacy** | Strips cookies/referrer from CDN requests; blocks tracking scripts served via CDNs (Decentraleyes-style) |
 | **Storage hygiene** | Periodic cleanup of 60+ tracker localStorage keys every 60 seconds |
 | **Redirect tracker bypass** | Resolves t.co, l.facebook.com, google.com/url redirects directly |
+| **Bounce tracking detection** | Detects sub-1.5s redirect chains and auto-purges bounce tracker cookies |
+| **Stale cookie cleanup** | Auto-deletes cookies for domains not visited in 7+ days |
 
 </details>
 
@@ -139,9 +151,17 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 | **Referrer trimming** | Strips referrer headers to origin-only |
 | **Do Not Track** | Sends DNT header on every request |
 | **Third-party cookie blocking** | Blocks cross-origin cookies |
-| **Tracking parameter stripping** | Removes 110+ tracking params from URLs (utm, fbclid, gclid, TikTok, Twitter, Reddit, LinkedIn, Amazon, Pinterest, and more) |
-| **Nuclear data poisoning** | 55+ fake data fields injected into every tracker request to corrupt surveillance profiles |
-| **HTTP header poisoning** | 200+ poisoned HTTP headers across 13 categories on every tracker request |
+| **Tracking parameter stripping** | Removes 110+ tracking params from URLs on navigation AND in-page link clicks |
+| **Link click parameter stripping** | MutationObserver-powered real-time cleaning of `<a>` hrefs before you click them |
+| **Nuclear data poisoning** | 55+ fake data fields injected into tracker API requests (fetch, XHR, beacon, forms, pixels) |
+| **Smart header poisoning** | Randomizes existing tracker request headers (UA, referrer, IP, correlation IDs) without spamming new ones |
+| **Privacy Sandbox blocking** | FLEDGE, Topics, Attribution Reporting, Fenced Frames, Shared Storage all disabled via Chromium flags + Permissions-Policy |
+| **Network state partitioning** | HTTP cache, connections, SSL sessions, DNS all partitioned per top-level site |
+| **HSTS supercookie protection** | HSTS/resolver cache cleared on startup and every 30 minutes |
+| **Favicon supercookie protection** | Periodic favicon cache clearing to prevent tracking via cached favicons |
+| **Bounce tracking detection** | Detects rapid redirects (< 1.5s) and purges cookies/storage for bounce tracker domains |
+| **Stale cookie cleanup** | Cookies for domains not visited within 7+ days are automatically deleted |
+| **Local CDN privacy** | Decentraleyes-style CDN cookie/referrer stripping + tracking script blocking |
 | **WebSocket interception** | Poisons WebSocket payloads sent to tracker hosts |
 | **EventSource blocking** | Tracker SSE connections blocked entirely |
 | **Redirect tracker bypass** | t.co, l.facebook.com, google.com/url resolved directly |
@@ -172,6 +192,13 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 |---|---|
 | **DNS-over-HTTPS** | All DNS queries encrypted — choose from Cloudflare, Quad9, NextDNS, or enter a custom DoH URL |
 | **Force HTTPS** | Automatically upgrades all HTTP requests to HTTPS |
+| **Network state partitioning** | HTTP cache, connections, SSL sessions, DNS all isolated per top-level site via Chromium flags |
+| **Privacy Sandbox blocking** | FLEDGE, Topics, Attribution Reporting, Shared Storage, Fenced Frames all disabled |
+| **HSTS supercookie protection** | HSTS resolver cache cleared on startup + every 30 minutes |
+| **Favicon supercookie protection** | Periodic cache clearing to prevent tracking via cached favicons |
+| **Bounce tracking detection** | Rapid redirects detected; bounce tracker cookies auto-purged |
+| **Stale cookie cleanup** | Cookies from unvisited domains (7+ days) automatically deleted |
+| **Local CDN privacy** | Strips cookies/referrer from CDN requests; blocks tracking scripts served via CDNs |
 | **Data saver mode** | Blocks autoplay media, animated images, web fonts, and large third-party resources |
 | **Incognito mode** | Separate session with full isolation and auto-cleanup on close |
 | **WebSocket/EventSource interception** | Poisons tracker WebSocket payloads and blocks tracker SSE connections |
@@ -185,7 +212,7 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 | Feature | Description |
 |---|---|
 | **Process sandboxing** | `app.enableSandbox()` — all renderer processes sandboxed |
-| **17 Chromium flags** | Command-line flags to disable risky features (WebBluetooth, WebUSB, WebSerial, etc.) |
+| **30+ Chromium flags** | Command-line flags to disable risky features (WebBluetooth, WebUSB, WebSerial, Privacy Sandbox, etc.) and enable partitioning |
 | **Strict CSP** | Content Security Policy blocks inline scripts and restricts resource origins |
 | **Context isolation** | Full context isolation enabled; node integration disabled in all renderers |
 | **Webview hardening** | Webview attachment validated — only whitelisted preloads, node integration forced off |
@@ -253,6 +280,24 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 | **Tab workspaces** | Save and restore named sets of tabs |
 | **Fake identity generator** | Generate random identities for form filling |
 | **Parental controls** | URL blocking and content filtering for supervised browsing |
+
+</details>
+
+<details>
+<summary><b>PrivaForge — Custom Developer Tools</b></summary>
+
+> A completely custom, cyberpunk-themed dev tools panel built from scratch. Opens with **F12** or **Ctrl+Shift+I**. Also accessible from the right-click context menu and command palette.
+
+| Panel | Description |
+|---|---|
+| **Terminal** | Hacker-style JS console with `▶` prompt. Execute JavaScript in the page context. Built-in commands: `help`, `dom.count`, `dom.links`, `perf.timing`, `perf.memory`, `privacy.scan`, `storage.local`, `fun.rainbow`, `fun.flip`, `fun.party`. Full command history (arrow keys) and tab-autocomplete |
+| **X-Ray** | DOM inspector with collapsible node tree, color-coded tags/IDs/classes. **Pick Element** mode lets you hover over page elements (neon green highlight overlay) and click to inspect — shows box model, computed styles, and attributes |
+| **Pulse** | Real-time network monitor via PerformanceObserver. Shows resource name, type, size, timing, and visual waterfall bar. Filterable by type (JS, CSS, Img, Fetch, Other). Record/pause toggle |
+| **Vault** | Storage explorer for localStorage, sessionStorage, and cookies. Search/filter keys, click values to inspect, delete individual entries or clear all |
+| **Paint** | Live CSS editor with line numbers. Inject CSS into the page instantly. **Quick Inject** snippets: Box Outlines, Grayscale, Comic Sans, Dark Mode, Rainbow, Hover Zoom. Pull computed styles from hovered elements |
+| **Scan** | Full site audit with scored cards for **Performance**, **Accessibility**, **Privacy**, and **SEO**. Each category gets a 0–100 score with pass/warn/fail items |
+
+**Design:** Dark cyberpunk aesthetic (`#08090d` + neon `#00ffaa`), scanline header animation, glowing tab indicators, monospace fonts (Cascadia Code, JetBrains Mono, Fira Code), resizable panel with drag handle, slide-up animation.
 
 </details>
 
@@ -426,7 +471,12 @@ PrivaBrowse ships with **22 built-in pages**, all accessible via the `privabrows
 | `F5` | Reload |
 | `Ctrl + Shift + R` | Hard reload |
 | `F11` | Fullscreen |
-| `F12` | DevTools |
+| `F12` | PrivaForge (custom dev tools) |
+| `Ctrl + Shift + I` | PrivaForge (alternate) |
+| `Ctrl + C` | Copy |
+| `Ctrl + V` | Paste |
+| `Ctrl + X` | Cut |
+| `Ctrl + A` | Select all |
 
 </details>
 
@@ -455,7 +505,7 @@ PrivaBrowse ships with **22 built-in pages**, all accessible via the `privabrows
 │  │ electron-   │  │  Session &   │  │   Protocol     │  │
 │  │ store       │  │  webRequest  │  │   Handler      │  │
 │  │ (settings,  │  │  (blocking,  │  │   (privabrowse │  │
-│  │  stats,     │  │   200+ hdr   │  │   :// pages)   │  │
+│  │  stats,     │  │   smart hdr  │  │   :// pages)   │  │
 │  │  vault)     │  │   poisoning) │  │                │  │
 │  └─────────────┘  └──────────────┘  └────────────────┘  │
 │                         │                                │
@@ -479,12 +529,18 @@ PrivaBrowse ships with **22 built-in pages**, all accessible via the `privabrows
 │  │  │              <webview>                       ││    │
 │  │  │   (web pages / internal privabrowse:// )     ││    │
 │  │  └──────────────────────────────────────────────┘│    │
+│  │  ┌──────────────────────────────────────────────┐│    │
+│  │  │          PrivaForge Dev Tools                ││    │
+│  │  │  Terminal | X-Ray | Pulse | Vault | Paint |  ││    │
+│  │  │  Scan (slide-up panel, cyberpunk theme)      ││    │
+│  │  └──────────────────────────────────────────────┘│    │
 │  └──────────────────────────────────────────────────┘    │
 │                                                          │
 │  renderer.js — UI logic, tabs, settings, achievements,   │
-│               60+ fingerprint vectors, storage cleanup,  │
-│               STORAGE_CLEANUP_SCRIPT, MISC_PRIVACY_SCRIPT│
-│  styles.css  — dark glass design system                  │
+│               PrivaForge dev tools, 60+ fingerprint      │
+│               vectors, storage cleanup, link param       │
+│               stripping, data poisoning                  │
+│  styles.css  — dark glass design system + PrivaForge CSS │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -527,7 +583,8 @@ privabrowse/
 │   │   ├── transparency.html  Transparency report
 │   │   └── fingerprinting.html Fingerprint protection details
 │   │
-│   └── blocklist.js           Ad/tracker domain lists and URL patterns
+│   ├── blocklist.js           Ad/tracker domain lists and URL patterns
+│   └── cdn-replacements.js   CDN tracking hosts and script patterns (Decentraleyes-style)
 │
 ├── build/
 │   └── license.txt            Installer license text
