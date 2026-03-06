@@ -69,13 +69,19 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 <td><b>UI</b></td><td>Custom dark glass design system with light mode</td>
 </tr>
 <tr>
-<td><b>Ad Blocking</b></td><td>Built-in, multi-layer (host blocking + pattern matching + script injection)</td>
+<td><b>Ad Blocking</b></td><td>9-layer system with 2,100+ blocked domains, pattern matching, and script injection</td>
 </tr>
 <tr>
 <td><b>Tracker Blocking</b></td><td>Curated domain lists + social tracker isolation + crypto miner blocking</td>
 </tr>
 <tr>
-<td><b>Fingerprint Protection</b></td><td>Canvas, WebGL, audio, font randomization</td>
+<td><b>Fingerprint Protection</b></td><td>60+ vectors — Canvas, WebGL, Audio, Navigator, Screen, Timing, Fonts, Math, MIDI, Sensors, and more</td>
+</tr>
+<tr>
+<td><b>Data Poisoning</b></td><td>200+ fake HTTP headers + 55+ poisoned data fields on every tracker request</td>
+</tr>
+<tr>
+<td><b>Security Hardening</b></td><td>Process sandboxing, CSP, IPC validation, navigation guards, permission handlers</td>
 </tr>
 <tr>
 <td><b>DNS</b></td><td>DNS-over-HTTPS (Cloudflare, Quad9, NextDNS, or custom)</td>
@@ -104,11 +110,20 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 
 | Layer | How It Works |
 |---|---|
-| **Fast-path host blocking** | O(1) hash lookup against thousands of known ad-serving domains |
-| **URL pattern matching** | Regex-based blocking for ad network URL patterns |
+| **Fast-path host blocking** | O(1) hash lookup against 740+ fast-block domains (2,100+ total across all lists) |
+| **Ad domain blocking** | 408 dedicated ad-serving domains blocked |
+| **Tracker domain blocking** | 446 tracker domains blocked at the network level |
+| **Aggressive blocking** | 358+ additional domains for aggressive mode |
+| **Social tracker blocking** | 112 social media tracking domains isolated |
+| **Crypto miner blocking** | 84 in-browser mining domains blocked |
+| **URL pattern matching** | Regex-based blocking for 100+ ad network URL patterns |
 | **YouTube ad interception** | Blocks pre-roll ad requests, ad-serving scripts, and tracking pixels |
 | **Script injection** | Injects ad-nuking scripts into pages for elements that bypass network-level blocking |
 | **Resource type filtering** | Blocks ad-related scripts, images, iframes, and XHR requests by type |
+| **Data poisoning** | Injects 55+ fake data fields into tracker requests to corrupt surveillance profiles |
+| **HTTP header poisoning** | Adds 200+ fake HTTP headers across 13 categories on every tracker request |
+| **Storage hygiene** | Periodic cleanup of 60+ tracker localStorage keys every 60 seconds |
+| **Redirect tracker bypass** | Resolves t.co, l.facebook.com, google.com/url redirects directly |
 
 </details>
 
@@ -117,14 +132,22 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 
 | Feature | Description |
 |---|---|
-| **Tracker domain blocking** | Curated blocklists of tracker domains, updated and aggressive |
-| **Social tracker isolation** | Blocks Facebook, Twitter, LinkedIn, and Google tracking widgets |
-| **Crypto miner blocking** | Blocks Coin-Hive and derivative in-browser mining scripts |
-| **Fingerprint spoofing** | Randomizes canvas, WebGL, AudioContext, and font fingerprints per session |
+| **Tracker domain blocking** | Curated blocklists of 446+ tracker domains, updated and aggressive |
+| **Social tracker isolation** | Blocks 112 Facebook, Twitter, LinkedIn, and Google tracking domains |
+| **Crypto miner blocking** | Blocks 84 Coin-Hive and derivative in-browser mining domains |
+| **Fingerprint spoofing** | 60+ vectors randomized per session — Canvas, WebGL, Audio, Navigator, Screen, Timing, Fonts, Math, MIDI, Device Motion, WebGPU, CSS matchMedia, Permissions, Storage, and more |
 | **Referrer trimming** | Strips referrer headers to origin-only |
 | **Do Not Track** | Sends DNT header on every request |
 | **Third-party cookie blocking** | Blocks cross-origin cookies |
-| **Tracking parameter stripping** | Removes `utm_*`, `fbclid`, `gclid`, `mc_eid`, and 20+ tracking params from URLs |
+| **Tracking parameter stripping** | Removes 110+ tracking params from URLs (utm, fbclid, gclid, TikTok, Twitter, Reddit, LinkedIn, Amazon, Pinterest, and more) |
+| **Nuclear data poisoning** | 55+ fake data fields injected into every tracker request to corrupt surveillance profiles |
+| **HTTP header poisoning** | 200+ poisoned HTTP headers across 13 categories on every tracker request |
+| **WebSocket interception** | Poisons WebSocket payloads sent to tracker hosts |
+| **EventSource blocking** | Tracker SSE connections blocked entirely |
+| **Redirect tracker bypass** | t.co, l.facebook.com, google.com/url resolved directly |
+| **Periodic storage cleanup** | 60+ tracker localStorage keys purged every 60 seconds |
+| **Anchor ping stripping** | Removes HTML ping attributes from all links |
+| **document.referrer sanitization** | Referrer reduced to origin-only via script injection |
 
 </details>
 
@@ -133,10 +156,12 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 
 | Feature | Description |
 |---|---|
-| **Cookie banner removal** | Auto-dismisses cookie consent popups (smart exclusions for Google/YouTube) |
+| **Cookie banner removal** | Auto-dismisses cookie consent popups across 20+ consent frameworks (smart exclusions for Google/YouTube) |
 | **Newsletter popup killing** | Removes email signup overlays and modals |
 | **Idle dialog dismissal** | Auto-dismisses "are you still there?" and paywall soft-locks |
 | **Auto cookie cleanup** | Clears site cookies when you close a tab (optional) |
+| **App install banner blocking** | Blocks "Install our app" and "Open in app" banners |
+| **Google Sign-In nag blocking** | Removes Google's persistent sign-in prompts |
 
 </details>
 
@@ -149,6 +174,24 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 | **Force HTTPS** | Automatically upgrades all HTTP requests to HTTPS |
 | **Data saver mode** | Blocks autoplay media, animated images, web fonts, and large third-party resources |
 | **Incognito mode** | Separate session with full isolation and auto-cleanup on close |
+| **WebSocket/EventSource interception** | Poisons tracker WebSocket payloads and blocks tracker SSE connections |
+| **Redirect tracker bypass** | Resolves t.co, l.facebook.com, google.com/url redirect chains directly |
+
+</details>
+
+<details>
+<summary><b>Security Hardening</b></summary>
+
+| Feature | Description |
+|---|---|
+| **Process sandboxing** | `app.enableSandbox()` — all renderer processes sandboxed |
+| **17 Chromium flags** | Command-line flags to disable risky features (WebBluetooth, WebUSB, WebSerial, etc.) |
+| **Strict CSP** | Content Security Policy blocks inline scripts and restricts resource origins |
+| **Context isolation** | Full context isolation enabled; node integration disabled in all renderers |
+| **Webview hardening** | Webview attachment validated — only whitelisted preloads, node integration forced off |
+| **Navigation guards** | Blocks `javascript:` and `data:` URL navigation attempts |
+| **Permission handlers** | Blocks dangerous API permissions (camera, microphone, geolocation, MIDI, sensors, etc.) |
+| **IPC validation** | All IPC inputs validated and rate-limited to prevent renderer-to-main abuse |
 
 </details>
 
@@ -177,7 +220,7 @@ PrivaBrowse is a **privacy-first Chromium browser** built with Electron. It ship
 | Feature | Description |
 |---|---|
 | **Smart address bar** | Auto-detects URLs vs search queries, normalizes input |
-| **Search engine switching** | Choose from DuckDuckGo, Google, Bing, Brave, Startpage, Ecosia, and more |
+| **Search engine switching** | Privacy-focused only — DuckDuckGo, Brave, Startpage, Qwant, SearXNG, Mojeek, MetaGer, Swisscows, Yep, Ecosia |
 | **Reader mode** | Strips pages to pure text for distraction-free reading |
 | **RSVP speed reader** | Rapid serial visual presentation — speed-read any article word by word |
 | **Page translation** | Built-in translate feature for foreign-language pages |
@@ -328,7 +371,7 @@ Plus: animated SVG progress ring, per-category stat counters, particle effects, 
 
 ## 📄 Internal Pages
 
-PrivaBrowse ships with **20 built-in pages**, all accessible via the `privabrowse://` protocol:
+PrivaBrowse ships with **22 built-in pages**, all accessible via the `privabrowse://` protocol:
 
 <details>
 <summary><b>View all internal pages</b></summary>
@@ -355,6 +398,8 @@ PrivaBrowse ships with **20 built-in pages**, all accessible via the `privabrows
 | Terms | `privabrowse://terms` | Terms of service |
 | Privacy | `privabrowse://privacy` | Privacy policy |
 | Contact | `privabrowse://contact` | Contact page |
+| Transparency | `privabrowse://transparency` | Transparency report — what PrivaBrowse blocks and why |
+| Fingerprinting | `privabrowse://fingerprinting` | Fingerprint protection details — 60+ spoofed vectors |
 
 </details>
 
@@ -410,8 +455,8 @@ PrivaBrowse ships with **20 built-in pages**, all accessible via the `privabrows
 │  │ electron-   │  │  Session &   │  │   Protocol     │  │
 │  │ store       │  │  webRequest  │  │   Handler      │  │
 │  │ (settings,  │  │  (blocking,  │  │   (privabrowse │  │
-│  │  stats,     │  │   headers,   │  │   :// pages)   │  │
-│  │  vault)     │  │   privacy)   │  │                │  │
+│  │  stats,     │  │   200+ hdr   │  │   :// pages)   │  │
+│  │  vault)     │  │   poisoning) │  │                │  │
 │  └─────────────┘  └──────────────┘  └────────────────┘  │
 │                         │                                │
 │                    IPC Bridge                             │
@@ -436,7 +481,9 @@ PrivaBrowse ships with **20 built-in pages**, all accessible via the `privabrows
 │  │  └──────────────────────────────────────────────┘│    │
 │  └──────────────────────────────────────────────────┘    │
 │                                                          │
-│  renderer.js — UI logic, tabs, settings, achievements    │
+│  renderer.js — UI logic, tabs, settings, achievements,   │
+│               60+ fingerprint vectors, storage cleanup,  │
+│               STORAGE_CLEANUP_SCRIPT, MISC_PRIVACY_SCRIPT│
 │  styles.css  — dark glass design system                  │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -476,7 +523,9 @@ privabrowse/
 │   │   ├── privasearch.html   Privacy-respecting search
 │   │   ├── terms.html         Terms of service
 │   │   ├── privacy.html       Privacy policy
-│   │   └── contact.html       Contact page
+│   │   ├── contact.html       Contact page
+│   │   ├── transparency.html  Transparency report
+│   │   └── fingerprinting.html Fingerprint protection details
 │   │
 │   └── blocklist.js           Ad/tracker domain lists and URL patterns
 │
@@ -484,6 +533,7 @@ privabrowse/
 │   └── license.txt            Installer license text
 │
 ├── LICENSE.md                 MIT License + EULA
+├── TRANSPARENCY.md            Transparency report source
 └── RELEASE_NOTES_v1.1.0.md   v1.1.0 release notes
 ```
 
