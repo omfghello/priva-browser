@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>PRIVABROWSE</strong><br>
+  <strong>PRIVABROWSE</strong><br> 
   <em>Transparency Report</em>
 </p>
 
